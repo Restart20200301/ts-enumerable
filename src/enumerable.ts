@@ -32,7 +32,7 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
     }
 
     selectMany<U>(selecttor: Selector<T, Enumerable<U>>): Enumerable<U> {
-        throw new Error('not impl this..')
+        return new SelectManyEnumerable(this, selecttor)
     }
 
     toArray(): T[] {
@@ -104,6 +104,25 @@ class SelectEnumerable<T, U> extends EnumerableImpl<U> {
         let i = 0
         for (const v of this.source) {
             yield this.selector(v, i++)
+        }
+    }
+}
+
+class SelectManyEnumerable<T, U> extends EnumerableImpl<U> {
+    constructor(
+        private readonly source: Enumerable<T>,
+        private readonly selector: Selector<T, Enumerable<U>>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<U, any, undefined> {
+        let i = 0
+        for (const iter of this.source) {
+            for (const v of this.selector(iter, i)) {
+                yield v
+            }
+            i++
         }
     }
 }
