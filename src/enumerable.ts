@@ -8,6 +8,8 @@ export default function stream<T>(iter: Iterable<T>): Enumerable<T> {
 type Predicate<T> = (v: T, i: number) => boolean
 type Selector<T, U> = (v: T, i: number) => U
 type SelectorMut<T, U, R> = (v: T, c: U) => R
+type Mapper<T, U> = (v: T) => U
+type Comparer<T> = (l: T, r: T) => boolean
 // type def end
 
 interface Enumerable<T> {
@@ -21,7 +23,7 @@ interface Enumerable<T> {
     selectMany<U, R>(
         collectionSelector: Selector<T, Iterable<U>>,
         resultSelector: SelectorMut<T, U, R>
-    ): Enumerable<U>
+    ): Enumerable<R>
 
     take(n: number): Enumerable<T>
 
@@ -31,7 +33,11 @@ interface Enumerable<T> {
 
     skipWhile(predicate: Predicate<T>): Enumerable<T>
 
+    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>): Enumerable<R>
+    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer: Comparer<K>): Enumerable<R>
+
     toArray(): T[]
+
     get count(): number
 }
 
@@ -50,15 +56,15 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
     selectMany<U, R>(
         collectionSelector: Selector<T, Iterable<U>>,
         resultSelector: SelectorMut<T, U, R>
-    ): Enumerable<U>
+    ): Enumerable<R>
     selectMany<U, R>(
         selecttor: Selector<T, Iterable<U>>,
         resultSelector?: SelectorMut<T, U, R>
-    ): Enumerable<U> {
+    ): Enumerable<R> {
         return new SelectManyEnumerable(
             this,
             selecttor,
-            resultSelector ?? ((_: any, v: any) => v)
+            resultSelector
         )
     }
 
@@ -70,7 +76,19 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
         return new TakeWhileEnumerable(this, predicate)
     }
 
-    skip(n: number): Enumerable<T> {}
+    skip(n: number): Enumerable<T> {
+        return new SkipEnumerable(this, n)
+    }
+
+    skipWhile(predicate: Predicate<T>): Enumerable<T> {
+        return new SkipWhileEnumerable(this, predicate)
+    }
+
+    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>): Enumerable<R>
+    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer: Comparer<K>): Enumerable<R>
+    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer?: Comparer<K>): Enumerable<R> {
+        return new JoinEnumerable(this, other, thisKeySelector, otherKeySelector, resultSelector)
+    }
 
     toArray(): T[] {
         return [...this]
@@ -149,7 +167,7 @@ class SelectManyEnumerable<T, U, R> extends EnumerableImpl<R> {
     constructor(
         private readonly source: Enumerable<T>,
         private readonly collectionSelector: Selector<T, Iterable<U>>,
-        private readonly resultSelector: SelectorMut<T, U, R>
+        private readonly resultSelector: SelectorMut<T, U, R> = (t, u) => u as unknown as R
     ) {
         super()
     }
@@ -225,10 +243,29 @@ class SkipWhileEnumerable<T> extends EnumerableImpl<T> {
     }
 
     override *[Symbol.iterator](): Iterator<T, any, undefined> {
-        let i = 0
+        let yielding = false
+        let i = -1
         for (const v of this.source) {
-            if (!this.predicate(v, i++)) break
-            yield v
+            i++
+            if (!yielding && !this.predicate(v, i)) yielding = true
+            if (yielding) yield v
         }
+    }
+}
+
+class JoinEnumerable<T, U, K, R> extends EnumerableImpl<R> {
+    constructor(
+        private readonly inner: Enumerable<T>,
+        private readonly outer: Iterable<U>,
+        private readonly innerKeySelector: Mapper<T, K>,
+        private readonly outerKeySelector: Mapper<U, K>,
+        private readonly resultSelector: SelectorMut<T, U, R>,
+        private readonly comparer: Comparer<K> = (l, r) => l == r
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        
     }
 }
