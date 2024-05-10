@@ -27,6 +27,10 @@ interface Enumerable<T> {
 
     takeWhile(predicate: Predicate<T>): Enumerable<T>
 
+    skip(n: number): Enumerable<T>
+
+    skipWhile(predicate: Predicate<T>): Enumerable<T>
+
     toArray(): T[]
     get count(): number
 }
@@ -65,6 +69,8 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
     takeWhile(predicate: Predicate<T>): Enumerable<T> {
         return new TakeWhileEnumerable(this, predicate)
     }
+
+    skip(n: number): Enumerable<T> {}
 
     toArray(): T[] {
         return [...this]
@@ -178,6 +184,39 @@ class TakeEnumerable<T> extends EnumerableImpl<T> {
 }
 
 class TakeWhileEnumerable<T> extends EnumerableImpl<T> {
+    constructor(
+        private readonly source: Enumerable<T>,
+        private readonly predicate: Predicate<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        let i = 0
+        for (const v of this.source) {
+            if (!this.predicate(v, i++)) break
+            yield v
+        }
+    }
+}
+
+class SkipEnumerable<T> extends EnumerableImpl<T> {
+    constructor(
+        private readonly source: Enumerable<T>,
+        private n: number
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.source) {
+            if (this.n-- > 0) continue
+            yield v
+        }
+    }
+}
+
+class SkipWhileEnumerable<T> extends EnumerableImpl<T> {
     constructor(
         private readonly source: Enumerable<T>,
         private readonly predicate: Predicate<T>
