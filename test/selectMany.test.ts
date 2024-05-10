@@ -10,11 +10,26 @@ describe('select many', () => {
         ).toEqual([1, 2, 3])
     })
 
-    test('with array index', () => {
+    test('with index', () => {
         expect(
             stream([[1], [2], [3], []])
-                .selectMany((v, i) => (i % 2 === 0 ? stream([]) : stream(v)))
+                .selectMany((v, i) => (i % 2 === 0 ? [] : v))
                 .toArray()
         ).toEqual([2])
+    })
+
+    test('with result selector', () => {
+        const stus = [
+            { name: 'Amy', age: 16, score: [92, 93] },
+            { name: 'Hugo', age: 11, score: [29] },
+        ]
+        expect(
+            stream(stus)
+                .selectMany(
+                    (v) => v.score,
+                    (c, v) => `${c.name}: ${v}`
+                )
+                .toArray()
+        ).toEqual(['Amy: 92', 'Amy: 93', 'Hugo: 29'])
     })
 })

@@ -7,6 +7,7 @@ export default function stream<T>(iter: Iterable<T>): Enumerable<T> {
 // type def begin
 type Predicate<T> = (v: T, i: number) => boolean
 type Selector<T, U> = (v: T, i: number) => U
+type SelectorMut<T, U, R> = (v: T, c: U) => R
 // type def end
 
 interface Enumerable<T> {
@@ -14,7 +15,11 @@ interface Enumerable<T> {
 
     where(predicate: Predicate<T>): Enumerable<T>
     select<U>(selecttor: Selector<T, U>): Enumerable<U>
-    selectMany<U>(selecttor: Selector<T, Enumerable<U>>): Enumerable<U>
+    selectMany<U>(selecttor: Selector<T, Iterable<U>>): Enumerable<U>
+    selectMany<U, R>(
+        collectionSelector: Selector<T, Iterable<U>>,
+        resultSelector: SelectorMut<T, U, R>
+    ): Enumerable<U>
 
     toArray(): T[]
     get count(): number
@@ -31,8 +36,20 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
         return new SelectEnumerable(this, selecttor)
     }
 
-    selectMany<U>(selecttor: Selector<T, Enumerable<U>>): Enumerable<U> {
-        return new SelectManyEnumerable(this, selecttor)
+    selectMany<U>(selecttor: Selector<T, Iterable<U>>): Enumerable<U>
+    selectMany<U, R>(
+        collectionSelector: Selector<T, Iterable<U>>,
+        resultSelector: SelectorMut<T, U, R>
+    ): Enumerable<U>
+    selectMany<U, R>(
+        selecttor: Selector<T, Iterable<U>>,
+        resultSelector?: SelectorMut<T, U, R>
+    ): Enumerable<U> {
+        return new SelectManyEnumerable(
+            this,
+            selecttor,
+            resultSelector ?? ((_: any, v: any) => v)
+        )
     }
 
     toArray(): T[] {
@@ -108,19 +125,20 @@ class SelectEnumerable<T, U> extends EnumerableImpl<U> {
     }
 }
 
-class SelectManyEnumerable<T, U> extends EnumerableImpl<U> {
+class SelectManyEnumerable<T, U, R> extends EnumerableImpl<R> {
     constructor(
         private readonly source: Enumerable<T>,
-        private readonly selector: Selector<T, Enumerable<U>>
+        private readonly collectionSelector: Selector<T, Iterable<U>>,
+        private readonly resultSelector: SelectorMut<T, U, R>
     ) {
         super()
     }
 
-    override *[Symbol.iterator](): Iterator<U, any, undefined> {
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
         let i = 0
         for (const iter of this.source) {
-            for (const v of this.selector(iter, i)) {
-                yield v
+            for (const v of this.collectionSelector(iter, i)) {
+                yield this.resultSelector(iter, v)
             }
             i++
         }
