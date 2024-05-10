@@ -14,12 +14,18 @@ interface Enumerable<T> {
     [Symbol.iterator](): Iterator<T>
 
     where(predicate: Predicate<T>): Enumerable<T>
+
     select<U>(selecttor: Selector<T, U>): Enumerable<U>
+
     selectMany<U>(selecttor: Selector<T, Iterable<U>>): Enumerable<U>
     selectMany<U, R>(
         collectionSelector: Selector<T, Iterable<U>>,
         resultSelector: SelectorMut<T, U, R>
     ): Enumerable<U>
+
+    take(n: number): Enumerable<T>
+
+    takeWhile(predicate: Predicate<T>): Enumerable<T>
 
     toArray(): T[]
     get count(): number
@@ -50,6 +56,14 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
             selecttor,
             resultSelector ?? ((_: any, v: any) => v)
         )
+    }
+
+    take(n: number): Enumerable<T> {
+        return new TakeEnumerable(this, n)
+    }
+
+    takeWhile(predicate: Predicate<T>): Enumerable<T> {
+        return new TakeWhileEnumerable(this, predicate)
     }
 
     toArray(): T[] {
@@ -141,6 +155,41 @@ class SelectManyEnumerable<T, U, R> extends EnumerableImpl<R> {
                 yield this.resultSelector(iter, v)
             }
             i++
+        }
+    }
+}
+
+class TakeEnumerable<T> extends EnumerableImpl<T> {
+    constructor(
+        private readonly source: Enumerable<T>,
+        private n: number
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        if (this.n <= 0) return
+
+        for (const v of this.source) {
+            yield v
+            if (--this.n == 0) break
+        }
+    }
+}
+
+class TakeWhileEnumerable<T> extends EnumerableImpl<T> {
+    constructor(
+        private readonly source: Enumerable<T>,
+        private readonly predicate: Predicate<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        let i = 0
+        for (const v of this.source) {
+            if (!this.predicate(v, i++)) break
+            yield v
         }
     }
 }
