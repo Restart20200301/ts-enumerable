@@ -1,4 +1,4 @@
-export default function stream<T>(iter: Iterable<T>): Enumerable<T> {
+export default function stream<T>(iter: Iterable<T>): IEnumerable<T> {
     return Array.isArray(iter)
         ? new ArrayEnumerable(iter)
         : new IterEnumerable(iter)
@@ -12,82 +12,112 @@ type Mapper<T, U> = (v: T) => U
 type Comparer<T> = (l: T, r: T) => boolean
 // type def end
 
-interface Enumerable<T> {
+interface IEnumerable<T> {
     [Symbol.iterator](): Iterator<T>
 
-    where(predicate: Predicate<T>): Enumerable<T>
+    where(predicate: Predicate<T>): IEnumerable<T>
 
-    select<U>(selecttor: Selector<T, U>): Enumerable<U>
+    select<U>(selecttor: Selector<T, U>): IEnumerable<U>
 
-    selectMany<U>(selecttor: Selector<T, Iterable<U>>): Enumerable<U>
+    selectMany<U>(selecttor: Selector<T, Iterable<U>>): IEnumerable<U>
     selectMany<U, R>(
         collectionSelector: Selector<T, Iterable<U>>,
         resultSelector: SelectorMut<T, U, R>
-    ): Enumerable<R>
+    ): IEnumerable<R>
 
-    take(n: number): Enumerable<T>
+    take(n: number): IEnumerable<T>
 
-    takeWhile(predicate: Predicate<T>): Enumerable<T>
+    takeWhile(predicate: Predicate<T>): IEnumerable<T>
 
-    skip(n: number): Enumerable<T>
+    skip(n: number): IEnumerable<T>
 
-    skipWhile(predicate: Predicate<T>): Enumerable<T>
+    skipWhile(predicate: Predicate<T>): IEnumerable<T>
 
-    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>): Enumerable<R>
-    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer: Comparer<K>): Enumerable<R>
+    join<U, K, R>(
+        other: Iterable<U>,
+        otherKeySelector: Mapper<U, K>,
+        thisKeySelector: Mapper<T, K>,
+        resultSelector: SelectorMut<T, U, R>
+    ): IEnumerable<R>
+    join<U, K, R>(
+        other: Iterable<U>,
+        otherKeySelector: Mapper<U, K>,
+        thisKeySelector: Mapper<T, K>,
+        resultSelector: SelectorMut<T, U, R>,
+        comparer: Comparer<K>
+    ): IEnumerable<R>
 
     toArray(): T[]
 
     get count(): number
 }
 
-abstract class EnumerableImpl<T> implements Enumerable<T> {
+abstract class Enumerable<T> implements IEnumerable<T> {
     abstract [Symbol.iterator](): Iterator<T, any, undefined>
 
-    where(predicate: Predicate<T>): Enumerable<T> {
+    where(predicate: Predicate<T>): IEnumerable<T> {
         return new WhereEnumerable(this, predicate)
     }
 
-    select<U>(selecttor: Selector<T, U>): Enumerable<U> {
+    select<U>(selecttor: Selector<T, U>): IEnumerable<U> {
         return new SelectEnumerable(this, selecttor)
     }
 
-    selectMany<U>(selecttor: Selector<T, Iterable<U>>): Enumerable<U>
+    selectMany<U>(selecttor: Selector<T, Iterable<U>>): IEnumerable<U>
     selectMany<U, R>(
         collectionSelector: Selector<T, Iterable<U>>,
         resultSelector: SelectorMut<T, U, R>
-    ): Enumerable<R>
+    ): IEnumerable<R>
     selectMany<U, R>(
         selecttor: Selector<T, Iterable<U>>,
         resultSelector?: SelectorMut<T, U, R>
-    ): Enumerable<R> {
-        return new SelectManyEnumerable(
-            this,
-            selecttor,
-            resultSelector
-        )
+    ): IEnumerable<R> {
+        return new SelectManyEnumerable(this, selecttor, resultSelector)
     }
 
-    take(n: number): Enumerable<T> {
+    take(n: number): IEnumerable<T> {
         return new TakeEnumerable(this, n)
     }
 
-    takeWhile(predicate: Predicate<T>): Enumerable<T> {
+    takeWhile(predicate: Predicate<T>): IEnumerable<T> {
         return new TakeWhileEnumerable(this, predicate)
     }
 
-    skip(n: number): Enumerable<T> {
+    skip(n: number): IEnumerable<T> {
         return new SkipEnumerable(this, n)
     }
 
-    skipWhile(predicate: Predicate<T>): Enumerable<T> {
+    skipWhile(predicate: Predicate<T>): IEnumerable<T> {
         return new SkipWhileEnumerable(this, predicate)
     }
 
-    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>): Enumerable<R>
-    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer: Comparer<K>): Enumerable<R>
-    join<U, K, R>(other: Iterable<U>, otherKeySelector: Mapper<U, K>,thisKeySelector: Mapper<T, K>, resultSelector: SelectorMut<T, U, R>, comparer?: Comparer<K>): Enumerable<R> {
-        return new JoinEnumerable(this, other, thisKeySelector, otherKeySelector, resultSelector)
+    join<U, K, R>(
+        other: Iterable<U>,
+        otherKeySelector: Mapper<U, K>,
+        thisKeySelector: Mapper<T, K>,
+        resultSelector: SelectorMut<T, U, R>
+    ): IEnumerable<R>
+    join<U, K, R>(
+        other: Iterable<U>,
+        otherKeySelector: Mapper<U, K>,
+        thisKeySelector: Mapper<T, K>,
+        resultSelector: SelectorMut<T, U, R>,
+        comparer: Comparer<K>
+    ): IEnumerable<R>
+    join<U, K, R>(
+        other: Iterable<U>,
+        otherKeySelector: Mapper<U, K>,
+        thisKeySelector: Mapper<T, K>,
+        resultSelector: SelectorMut<T, U, R>,
+        comparer?: Comparer<K>
+    ): IEnumerable<R> {
+        return new JoinEnumerable(
+            this,
+            other,
+            thisKeySelector,
+            otherKeySelector,
+            resultSelector
+        )
     }
 
     toArray(): T[] {
@@ -101,7 +131,7 @@ abstract class EnumerableImpl<T> implements Enumerable<T> {
     }
 }
 
-class ArrayEnumerable<T> extends EnumerableImpl<T> {
+class ArrayEnumerable<T> extends Enumerable<T> {
     constructor(private readonly source: T[]) {
         super()
     }
@@ -119,7 +149,7 @@ class ArrayEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class IterEnumerable<T> extends EnumerableImpl<T> {
+class IterEnumerable<T> extends Enumerable<T> {
     constructor(private readonly source: Iterable<T>) {
         super()
     }
@@ -129,9 +159,9 @@ class IterEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class WhereEnumerable<T> extends EnumerableImpl<T> {
+class WhereEnumerable<T> extends Enumerable<T> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private readonly predicate: Predicate<T>
     ) {
         super()
@@ -147,9 +177,9 @@ class WhereEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class SelectEnumerable<T, U> extends EnumerableImpl<U> {
+class SelectEnumerable<T, U> extends Enumerable<U> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private readonly selector: Selector<T, U>
     ) {
         super()
@@ -163,11 +193,12 @@ class SelectEnumerable<T, U> extends EnumerableImpl<U> {
     }
 }
 
-class SelectManyEnumerable<T, U, R> extends EnumerableImpl<R> {
+class SelectManyEnumerable<T, U, R> extends Enumerable<R> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private readonly collectionSelector: Selector<T, Iterable<U>>,
-        private readonly resultSelector: SelectorMut<T, U, R> = (t, u) => u as unknown as R
+        private readonly resultSelector: SelectorMut<T, U, R> = (t, u) =>
+            u as unknown as R
     ) {
         super()
     }
@@ -183,9 +214,9 @@ class SelectManyEnumerable<T, U, R> extends EnumerableImpl<R> {
     }
 }
 
-class TakeEnumerable<T> extends EnumerableImpl<T> {
+class TakeEnumerable<T> extends Enumerable<T> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private n: number
     ) {
         super()
@@ -201,9 +232,9 @@ class TakeEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class TakeWhileEnumerable<T> extends EnumerableImpl<T> {
+class TakeWhileEnumerable<T> extends Enumerable<T> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private readonly predicate: Predicate<T>
     ) {
         super()
@@ -218,9 +249,9 @@ class TakeWhileEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class SkipEnumerable<T> extends EnumerableImpl<T> {
+class SkipEnumerable<T> extends Enumerable<T> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private n: number
     ) {
         super()
@@ -234,9 +265,9 @@ class SkipEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class SkipWhileEnumerable<T> extends EnumerableImpl<T> {
+class SkipWhileEnumerable<T> extends Enumerable<T> {
     constructor(
-        private readonly source: Enumerable<T>,
+        private readonly source: IEnumerable<T>,
         private readonly predicate: Predicate<T>
     ) {
         super()
@@ -253,9 +284,9 @@ class SkipWhileEnumerable<T> extends EnumerableImpl<T> {
     }
 }
 
-class JoinEnumerable<T, U, K, R> extends EnumerableImpl<R> {
+class JoinEnumerable<T, U, K, R> extends Enumerable<R> {
     constructor(
-        private readonly inner: Enumerable<T>,
+        private readonly inner: IEnumerable<T>,
         private readonly outer: Iterable<U>,
         private readonly innerKeySelector: Mapper<T, K>,
         private readonly outerKeySelector: Mapper<U, K>,
@@ -265,7 +296,58 @@ class JoinEnumerable<T, U, K, R> extends EnumerableImpl<R> {
         super()
     }
 
-    override *[Symbol.iterator](): Iterator<R, any, undefined> {
-        
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {}
+}
+
+interface IGrouping<K, E> extends IEnumerable<E> {
+    get key(): K
+}
+
+class Grouping<K, E> extends Enumerable<E> implements IGrouping<K, E> {
+    private readonly elements: E[] = []
+
+    constructor(private readonly k: K) {
+        super()
+    }
+
+    override [Symbol.iterator](): Iterator<E, any, undefined> {
+        return this.elements[Symbol.iterator]()
+    }
+
+    get key(): K {
+        return this.k
+    }
+
+    get count(): number {
+        return this.elements.length
+    }
+
+    add(element: E) {
+        this.elements.push(element)
+    }
+}
+
+interface ILookup<K, E> extends IEnumerable<IGrouping<K, E>> {
+    get count(): number
+    has(key: K): boolean
+    getElementsEnumerable(key: K): IEnumerable<K>
+}
+
+class Lookup<K, E>
+    extends Enumerable<IGrouping<K, E>>
+    implements ILookup<K, E>
+{
+    private readonly groupings: Array<Grouping<K, E>> = []
+
+    has(key: K): boolean {
+        throw new Error('Method not implemented.')
+    }
+
+    getElementsEnumerable(key: K): IEnumerable<K> {
+        throw new Error('Method not implemented.')
+    }
+
+    override [Symbol.iterator](): Iterator<IGrouping<K, E>, any, undefined> {
+        throw new Error('Method not implemented.')
     }
 }
