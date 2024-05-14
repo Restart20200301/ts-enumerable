@@ -55,7 +55,12 @@ describe('join', () => {
         {
             name: 'Rui',
             id: 11,
-            tearcherId: 12,
+            tearcherId: 1,
+        },
+        {
+            name: 'Hi',
+            id: 1,
+            tearcherId: 11,
         },
     ]
 
@@ -70,6 +75,34 @@ describe('join', () => {
             })
         )
 
-        expect(s.toArray()).toEqual([])
+        expect(s.toArray()).toEqual([
+            { name: 'Jay Chen', departmentName: 'Hi' },
+            { name: 'Chun Qiu', departmentName: 'Hi' },
+        ])
+    })
+
+    test('Multiple join', () => {
+        const s = stream(students)
+            .join(
+                departments,
+                (s) => s.departmentId,
+                (d) => d.id,
+                (s, d) => ({ s, d })
+            )
+            .join(
+                teachers,
+                (cd) => cd.d.tearcherId,
+                (t) => t.id,
+                (cd, t) => ({
+                    name: `${cd.s.firstName} ${cd.s.lastName}`,
+                    departmentName: `${cd.d.name}`,
+                    teacherName: `${t.first} ${t.last}`,
+                })
+            )
+
+        expect(s.toArray()).toEqual([
+            { name: 'Jay Chen', departmentName: 'Hi', teacherName: 'Rui Wen' },
+            { name: 'Chun Qiu', departmentName: 'Hi', teacherName: 'Rui Wen' },
+        ])
     })
 })
