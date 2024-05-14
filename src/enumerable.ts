@@ -40,6 +40,13 @@ interface IEnumerable<T> {
         resultSelector: SelectorMut<T, U, R>
     ): IEnumerable<R>
 
+    groupJoin<U, K, R>(
+        inner: Iterable<U>,
+        outerKeySelector: Mapper<T, K>,
+        innerKeySelector: Mapper<U, K>,
+        resultSelector: SelectorMut<T, IEnumerable<U>, R>
+    ): IEnumerable<R>
+
     toArray(): T[]
 
     get count(): number
@@ -91,6 +98,21 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         resultSelector: SelectorMut<T, U, R>
     ): IEnumerable<R> {
         return new JoinEnumerable(
+            this,
+            stream(inner),
+            outerKeySelector,
+            innerKeySelector,
+            resultSelector
+        )
+    }
+
+    groupJoin<U, K, R>(
+        inner: Iterable<U>,
+        outerKeySelector: Mapper<T, K>,
+        innerKeySelector: Mapper<U, K>,
+        resultSelector: SelectorMut<T, IEnumerable<U>, R>
+    ): IEnumerable<R> {
+        return new GroupJoinEnumerable(
             this,
             stream(inner),
             outerKeySelector,
@@ -263,30 +285,6 @@ class SkipWhileEnumerable<T> extends Enumerable<T> {
     }
 }
 
-class JoinEnumerable<T, U, K, R> extends Enumerable<R> {
-    constructor(
-        private readonly outer: IEnumerable<T>,
-        private readonly inner: IEnumerable<U>,
-        private readonly outerKeySelector: Mapper<T, K>,
-        private readonly innerKeySelector: Mapper<U, K>,
-        private readonly resultSelector: SelectorMut<T, U, R>
-    ) {
-        super()
-    }
-
-    override *[Symbol.iterator](): Iterator<R, any, undefined> {
-        const lookup = Lookup.createForJoin(this.inner, this.innerKeySelector)
-        for (const item of this.outer) {
-            const key = this.outerKeySelector(item)
-            if (!lookup.has(key)) continue
-            const g = lookup.getGrouping(key)
-            for (const v of g) {
-                yield this.resultSelector(item, v)
-            }
-        }
-    }
-}
-
 interface IGrouping<K, E> extends IEnumerable<E> {
     get key(): K
 }
@@ -360,5 +358,51 @@ class Lookup<K, E>
             lookup.getGrouping(key).add(v)
         }
         return lookup
+    }
+}
+
+class JoinEnumerable<T, U, K, R> extends Enumerable<R> {
+    constructor(
+        private readonly outer: IEnumerable<T>,
+        private readonly inner: IEnumerable<U>,
+        private readonly outerKeySelector: Mapper<T, K>,
+        private readonly innerKeySelector: Mapper<U, K>,
+        private readonly resultSelector: SelectorMut<T, U, R>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        const lookup = Lookup.createForJoin(this.inner, this.innerKeySelector)
+        for (const item of this.outer) {
+            const key = this.outerKeySelector(item)
+            if (!lookup.has(key)) continue
+            const g = lookup.getGrouping(key)
+            for (const v of g) {
+                yield this.resultSelector(item, v)
+            }
+        }
+    }
+}
+
+class GroupJoinEnumerable<T, U, K, R> extends Enumerable<R> {
+    constructor(
+        private readonly outer: IEnumerable<T>,
+        private readonly inner: IEnumerable<U>,
+        private readonly outerKeySelector: Mapper<T, K>,
+        private readonly innerKeySelector: Mapper<U, K>,
+        private readonly resultSelector: SelectorMut<T, IEnumerable<U>, R>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        const lookup = Lookup.createForJoin(this.inner, this.innerKeySelector)
+        for (const item of this.outer) {
+            const key = this.outerKeySelector(item)
+            if (!lookup.has(key)) continue
+            const g = lookup.getGrouping(key)
+            yield this.resultSelector(item, g)
+        }
     }
 }
