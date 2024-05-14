@@ -406,3 +406,147 @@ class GroupJoinEnumerable<T, U, K, R> extends Enumerable<R> {
         }
     }
 }
+
+interface IOrderedEnumberable<T> extends IEnumerable<T> {
+    createOrderedEnumerable<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>,
+        descending: boolean
+    ): IOrderedEnumberable<T>
+}
+
+abstract class OrderedEnumerable<T>
+    extends Enumerable<T>
+    implements IOrderedEnumberable<T>
+{
+    constructor(private readonly source: IEnumerable<T>) {
+        super()
+    }
+
+    createOrderedEnumerable<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>,
+        descending: boolean
+    ): IOrderedEnumberable<T> {
+        const ordered = new OrderedEnumerableImpl(
+            this.source,
+            keySelector,
+            comparer,
+            descending
+        )
+        ordered.setParent(this)
+        return ordered
+    }
+
+    abstract getEnumerableSorter(
+        next?: EnumerableSorter<T>
+    ): EnumerableSorter<T>
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        const elements = [...this.source]
+        if (elements.length == 0) return
+        const sorter = this.getEnumerableSorter()
+        const map = sorter.sort(elements)
+        for (const v of map) yield elements[v]
+    }
+}
+
+class OrderedEnumerableImpl<T, K> extends OrderedEnumerable<T> {
+    private parent?: OrderedEnumerable<T>
+
+    constructor(
+        source: IEnumerable<T>,
+        private readonly keySelector: Mapper<T, K>,
+        private readonly comparer: Comparer<K>,
+        private readonly descending: boolean
+    ) {
+        super(source)
+    }
+
+    getEnumerableSorter(next?: EnumerableSorter<T>): EnumerableSorter<T> {
+        let sorter: EnumerableSorter<T> = new EnumerableSorterImpl(
+            this.keySelector,
+            this.comparer,
+            this.descending,
+            next
+        )
+        if (this.parent) sorter = this.parent.getEnumerableSorter(sorter)
+        return sorter
+    }
+
+    setParent(p: OrderedEnumerable<T>) {
+        this.parent = p
+    }
+}
+
+abstract class EnumerableSorter<T> {
+    abstract computeKeys(elements: T[]): void
+    abstract compareKeys(index1: number, index2: number): boolean
+
+    sort(elements: T[]): number[] {
+        this.computeKeys(elements)
+        const map: number[] = new Array(elements.length)
+        for (let i = 0; i < map.length; i++) map[i] = i
+        this.quickSort(map, 0, map.length - 1)
+        return map
+    }
+
+    private quickSort(map: number[], left: number, right: number) {
+        do {
+            let i = left
+            let j = right
+            let x = map[i + ((j - i) >> 1)]
+            do {
+                while (i < map.length && this.compareKeys(map[i], x)) i++
+                while (j >= 0 && this.compareKeys(x, map[j])) j++
+                if (i > j) break
+                if (i < j) {
+                    const temp = map[i]
+                    map[i] = map[j]
+                    map[j] = temp
+                }
+                i++
+                j--
+            } while (i <= j)
+            if (j - left > right - i) {
+                if (i < right) this.quickSort(map, i, right)
+                right = j
+            } else {
+                if (left < j) this.quickSort(map, left, j)
+                left = i
+            }
+        } while (left < right)
+    }
+}
+
+class EnumerableSorterImpl<T, K> extends EnumerableSorter<T> {
+    private keys: K[] = []
+
+    constructor(
+        private readonly keySelector: Mapper<T, K>,
+        private readonly comparer: Comparer<K>,
+        private readonly descending: boolean,
+        private readonly next?: EnumerableSorter<T>
+    ) {
+        super()
+    }
+
+    override computeKeys(elements: T[]): void {
+        this.keys = new Array(elements.length)
+        for (let i = 0; i < elements.length; i++)
+            this.keys[i] = this.keySelector(elements[i])
+
+        if (this.next !== undefined) this.next.computeKeys(elements)
+    }
+
+    override compareKeys(index1: number, index2: number): boolean {
+        let c = false
+        if (this.comparer(this.keys[index1], this.keys[index2])) c = true
+        else if (this.comparer(this.keys[index2], this.keys[index1])) c = false
+        else {
+            if (!this.next) return index1 < index2
+            return this.next.compareKeys(index1, index2)
+        }
+        return this.descending ? !c : c
+    }
+}
