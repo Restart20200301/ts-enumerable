@@ -92,7 +92,7 @@ abstract class Enumerable<T> implements IEnumerable<T> {
     ): IEnumerable<R> {
         return new JoinEnumerable(
             this,
-            inner,
+            stream(inner),
             outerKeySelector,
             innerKeySelector,
             resultSelector
