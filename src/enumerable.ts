@@ -34,17 +34,10 @@ interface IEnumerable<T> {
     skipWhile(predicate: Predicate<T>): IEnumerable<T>
 
     join<U, K, R>(
-        other: Iterable<U>,
-        otherKeySelector: Mapper<U, K>,
-        thisKeySelector: Mapper<T, K>,
+        inner: Iterable<U>,
+        outerKeySelector: Mapper<T, K>,
+        innerKeySelector: Mapper<U, K>,
         resultSelector: SelectorMut<T, U, R>
-    ): IEnumerable<R>
-    join<U, K, R>(
-        other: Iterable<U>,
-        otherKeySelector: Mapper<U, K>,
-        thisKeySelector: Mapper<T, K>,
-        resultSelector: SelectorMut<T, U, R>,
-        comparer: Comparer<K>
     ): IEnumerable<R>
 
     toArray(): T[]
@@ -92,30 +85,16 @@ abstract class Enumerable<T> implements IEnumerable<T> {
     }
 
     join<U, K, R>(
-        other: Iterable<U>,
-        otherKeySelector: Mapper<U, K>,
-        thisKeySelector: Mapper<T, K>,
+        inner: Iterable<U>,
+        outerKeySelector: Mapper<T, K>,
+        innerKeySelector: Mapper<U, K>,
         resultSelector: SelectorMut<T, U, R>
-    ): IEnumerable<R>
-    join<U, K, R>(
-        other: Iterable<U>,
-        otherKeySelector: Mapper<U, K>,
-        thisKeySelector: Mapper<T, K>,
-        resultSelector: SelectorMut<T, U, R>,
-        comparer: Comparer<K>
-    ): IEnumerable<R>
-    join<U, K, R>(
-        other: Iterable<U>,
-        otherKeySelector: Mapper<U, K>,
-        thisKeySelector: Mapper<T, K>,
-        resultSelector: SelectorMut<T, U, R>,
-        comparer?: Comparer<K>
     ): IEnumerable<R> {
         return new JoinEnumerable(
             this,
-            other,
-            thisKeySelector,
-            otherKeySelector,
+            inner,
+            outerKeySelector,
+            innerKeySelector,
             resultSelector
         )
     }
@@ -286,17 +265,26 @@ class SkipWhileEnumerable<T> extends Enumerable<T> {
 
 class JoinEnumerable<T, U, K, R> extends Enumerable<R> {
     constructor(
-        private readonly inner: IEnumerable<T>,
-        private readonly outer: Iterable<U>,
-        private readonly innerKeySelector: Mapper<T, K>,
-        private readonly outerKeySelector: Mapper<U, K>,
-        private readonly resultSelector: SelectorMut<T, U, R>,
-        private readonly comparer: Comparer<K> = (l, r) => l == r
+        private readonly outer: IEnumerable<T>,
+        private readonly inner: IEnumerable<U>,
+        private readonly outerKeySelector: Mapper<T, K>,
+        private readonly innerKeySelector: Mapper<U, K>,
+        private readonly resultSelector: SelectorMut<T, U, R>
     ) {
         super()
     }
 
-    override *[Symbol.iterator](): Iterator<R, any, undefined> {}
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        const lookup = Lookup.createForJoin(this.inner, this.innerKeySelector)
+        for (const item of this.outer) {
+            const key = this.outerKeySelector(item)
+            if (!lookup.has(key)) continue
+            const g = lookup.getGrouping(key)
+            for (const v of g) {
+                yield this.resultSelector(item, v)
+            }
+        }
+    }
 }
 
 interface IGrouping<K, E> extends IEnumerable<E> {
@@ -318,10 +306,6 @@ class Grouping<K, E> extends Enumerable<E> implements IGrouping<K, E> {
         return this.k
     }
 
-    get count(): number {
-        return this.elements.length
-    }
-
     add(element: E) {
         this.elements.push(element)
     }
@@ -338,16 +322,43 @@ class Lookup<K, E>
     implements ILookup<K, E>
 {
     private readonly groupings: Array<Grouping<K, E>> = []
+    private readonly keyToGroupingsIndex = new Map<K, number>()
 
     has(key: K): boolean {
-        throw new Error('Method not implemented.')
+        return this.keyToGroupingsIndex.has(key)
     }
 
     getElementsEnumerable(key: K): IEnumerable<K> {
         throw new Error('Method not implemented.')
     }
 
+    getGrouping(key: K): Grouping<K, E> {
+        const index = this.keyToGroupingsIndex.get(key)!
+        return this.groupings[index]
+    }
+
+    createGrouping(key: K) {
+        const grouping = new Grouping<K, E>(key)
+        this.groupings.push(grouping)
+        this.keyToGroupingsIndex.set(key, this.groupings.length - 1)
+    }
+
     override [Symbol.iterator](): Iterator<IGrouping<K, E>, any, undefined> {
-        throw new Error('Method not implemented.')
+        return this.groupings[Symbol.iterator]()
+    }
+
+    static createForJoin<K, E>(
+        source: IEnumerable<E>,
+        keySelector: Mapper<E, K>
+    ): Lookup<K, E> {
+        const lookup = new Lookup<K, E>()
+        for (const v of source) {
+            const key = keySelector(v)
+            if (!lookup.has(key)) {
+                lookup.createGrouping(key)
+            }
+            lookup.getGrouping(key).add(v)
+        }
+        return lookup
     }
 }
