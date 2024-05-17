@@ -9,7 +9,7 @@ type Predicate<T> = (v: T, i: number) => boolean
 type Selector<T, U> = (v: T, i: number) => U
 type SelectorMut<T, U, R> = (v: T, c: U) => R
 type Mapper<T, U> = (v: T) => U
-type Comparer<T> = (l: T, r: T) => boolean
+type Comparer<T> = (l: T, r: T) => number
 // type def end
 
 interface IEnumerable<T> {
@@ -47,9 +47,25 @@ interface IEnumerable<T> {
         resultSelector: SelectorMut<T, IEnumerable<U>, R>
     ): IEnumerable<R>
 
+    orderBy<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    orderBy<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+
+    orderByDescending<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    orderByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+
     toArray(): T[]
 
     get count(): number
+}
+
+const conparerDefault = <T>(l: T, r: T) => {
+    return l === r ? 0 : l < r ? -1 : 1
 }
 
 abstract class Enumerable<T> implements IEnumerable<T> {
@@ -118,6 +134,40 @@ abstract class Enumerable<T> implements IEnumerable<T> {
             outerKeySelector,
             innerKeySelector,
             resultSelector
+        )
+    }
+
+    orderBy<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    orderBy<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+    orderBy<K>(
+        keySelector: Mapper<T, K>,
+        comparer?: Comparer<K>
+    ): IOrderedEnumberable<T> {
+        return new OrderedEnumerableImpl<T, K>(
+            this,
+            keySelector,
+            comparer ?? conparerDefault<K>,
+            false
+        )
+    }
+
+    orderByDescending<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    orderByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+    orderByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer?: Comparer<K>
+    ): IOrderedEnumberable<T> {
+        return new OrderedEnumerableImpl<T, K>(
+            this,
+            keySelector,
+            comparer ?? conparerDefault<K>,
+            true
         )
     }
 
@@ -481,7 +531,7 @@ class OrderedEnumerableImpl<T, K> extends OrderedEnumerable<T> {
 
 abstract class EnumerableSorter<T> {
     abstract computeKeys(elements: T[]): void
-    abstract compareKeys(index1: number, index2: number): boolean
+    abstract compareKeys(index1: number, index2: number): number
 
     sort(elements: T[]): number[] {
         this.computeKeys(elements)
@@ -497,8 +547,8 @@ abstract class EnumerableSorter<T> {
             let j = right
             let x = map[i + ((j - i) >> 1)]
             do {
-                while (i < map.length && this.compareKeys(map[i], x)) i++
-                while (j >= 0 && this.compareKeys(x, map[j])) j++
+                while (i < map.length && this.compareKeys(x, map[i]) > 0) i++
+                while (j >= 0 && this.compareKeys(x, map[j]) < 0) j--
                 if (i > j) break
                 if (i < j) {
                     const temp = map[i]
@@ -536,17 +586,15 @@ class EnumerableSorterImpl<T, K> extends EnumerableSorter<T> {
         for (let i = 0; i < elements.length; i++)
             this.keys[i] = this.keySelector(elements[i])
 
-        if (this.next !== undefined) this.next.computeKeys(elements)
+        if (this.next) this.next.computeKeys(elements)
     }
 
-    override compareKeys(index1: number, index2: number): boolean {
-        let c = false
-        if (this.comparer(this.keys[index1], this.keys[index2])) c = true
-        else if (this.comparer(this.keys[index2], this.keys[index1])) c = false
-        else {
-            if (!this.next) return index1 < index2
-            return this.next.compareKeys(index1, index2)
+    override compareKeys(index1: number, index2: number): number {
+        let c = this.comparer(this.keys[index1], this.keys[index2])
+        if (c === 0) {
+            if (this.next) return this.next.compareKeys(index1, index2)
+            return index1 - index2
         }
-        return this.descending ? !c : c
+        return this.descending ? -c : c
     }
 }
