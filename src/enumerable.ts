@@ -458,10 +458,16 @@ class GroupJoinEnumerable<T, U, K, R> extends Enumerable<R> {
 }
 
 interface IOrderedEnumberable<T> extends IEnumerable<T> {
-    createOrderedEnumerable<K>(
+    thenBy<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    thenBy<K>(
         keySelector: Mapper<T, K>,
-        comparer: Comparer<K>,
-        descending: boolean
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+
+    thenByDescending<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    thenByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
     ): IOrderedEnumberable<T>
 }
 
@@ -498,6 +504,38 @@ abstract class OrderedEnumerable<T>
         const sorter = this.getEnumerableSorter()
         const map = sorter.sort(elements)
         for (const v of map) yield elements[v]
+    }
+
+    thenBy<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    thenBy<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+    thenBy<K>(
+        keySelector: Mapper<T, K>,
+        comparer?: Comparer<K>
+    ): IOrderedEnumberable<T> {
+        return this.createOrderedEnumerable(
+            keySelector,
+            comparer ?? conparerDefault,
+            false
+        )
+    }
+
+    thenByDescending<K>(keySelector: Mapper<T, K>): IOrderedEnumberable<T>
+    thenByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer: Comparer<K>
+    ): IOrderedEnumberable<T>
+    thenByDescending<K>(
+        keySelector: Mapper<T, K>,
+        comparer?: Comparer<K>
+    ): IOrderedEnumberable<T> {
+        return this.createOrderedEnumerable(
+            keySelector,
+            comparer ?? conparerDefault,
+            true
+        )
     }
 }
 
