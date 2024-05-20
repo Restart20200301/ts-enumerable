@@ -19,6 +19,12 @@ stream(a)
 stream(a)
     .orderByDescending((v) => v)
     .toArray()
+
+stream(a)
+    .orderBy((v) => v.age)
+    .thenByDescending((v) => v.score)
+    .thenByDescending((v) => v.name)
+    .toArray()
 ```
 
 ### join
