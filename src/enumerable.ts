@@ -60,10 +60,6 @@ interface IEnumerable<T> {
     ): IOrderedEnumberable<T>
 
     groupBy<K>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
-    groupBy<K, E>(
-        keySelector: Mapper<T, K>,
-        elementSelector: Mapper<T, E>
-    ): IEnumerable<IGrouping<K, E>>
 
     toArray(): T[]
 
@@ -177,18 +173,8 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         )
     }
 
-    groupBy<K>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
-    groupBy<K, E>(
-        keySelector: Mapper<T, K>,
-        elementSelector: Mapper<T, E>
-    ): IEnumerable<IGrouping<K, E>>
-    groupBy<K, E>(
-        keySelector: Mapper<T, K>,
-        elementSelector?: Mapper<T, E>
-    ): IEnumerable<IGrouping<K, T | E>> {
-        return elementSelector
-            ? new GroupedEnumerable(this, keySelector, elementSelector)
-            : new GroupedEnumerable(this, keySelector, (v) => v)
+    groupBy<K>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>> {
+        return new GroupedEnumerable(this, keySelector, (v) => v)
     }
 
     toArray(): T[] {
