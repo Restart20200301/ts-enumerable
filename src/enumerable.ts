@@ -59,7 +59,7 @@ interface IEnumerable<T> {
         comparer: Comparer<K>
     ): IOrderedEnumberable<T>
 
-    groupBy<K, E>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
+    groupBy<K>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
     groupBy<K, E>(
         keySelector: Mapper<T, K>,
         elementSelector: Mapper<T, E>
@@ -177,7 +177,7 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         )
     }
 
-    groupBy<K, E>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
+    groupBy<K>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
     groupBy<K, E>(
         keySelector: Mapper<T, K>,
         elementSelector: Mapper<T, E>

@@ -29,4 +29,16 @@ describe('group by', () => {
             { key: 1, count: 1 },
         ])
     })
+
+    test('with element seletor', () => {
+        const s = stream(students)
+            .groupBy(
+                (stu) => Math.floor(stu.age),
+                (v) => Math.floor(v.age)
+            )
+            .select((v) => [...v])
+            .toArray()
+
+        expect(s).toEqual([[8], [4, 4], [1]])
+    })
 })
