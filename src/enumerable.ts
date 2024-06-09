@@ -59,6 +59,10 @@ interface IEnumerable<T> {
         comparer: Comparer<K>
     ): IOrderedEnumberable<T>
 
+    groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
+    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): IGrouping<K, E>
+    groupBy<K, E, R>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>, resultSelector: SelectorMut<K, IEnumerable<E>, R>): IEnumerable<R>
+
     toArray(): T[]
 
     get count(): number
@@ -170,6 +174,14 @@ abstract class Enumerable<T> implements IEnumerable<T> {
             true
         )
     }
+
+    groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
+    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): IGrouping<K, E>
+    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector?: Mapper<T, E>): any {
+        return new GroupedEnumerable(keySelector, elementSelector ?? ((v: any) => v))
+    }
+
+
 
     toArray(): T[] {
         return [...this]
@@ -391,6 +403,12 @@ class Lookup<K, E>
         this.keyToGroupingsIndex.set(key, this.groupings.length - 1)
     }
 
+    *appalyResultSelector<R>(resultSelector: SelectorMut<K, IEnumerable<E>, R>) {
+        for (const g of this.groupings) {
+            yield resultSelector(g.key, g)
+        }
+    }
+
     override [Symbol.iterator](): Iterator<IGrouping<K, E>, any, undefined> {
         return this.groupings[Symbol.iterator]()
     }
@@ -408,6 +426,16 @@ class Lookup<K, E>
             lookup.getGrouping(key).add(v)
         }
         return lookup
+    }
+
+    static create<T, K, E>(source: IEnumerable<T>, keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): Lookup<K, E> {
+        const lookup = new Lookup<K, E>();
+        for (const v of source) { 
+            const k = keySelector(v)
+            if (!lookup.has(k)) lookup.createGrouping(k)
+            lookup.getGrouping(k).add(elementSelector(v));
+        }
+        return lookup;
     }
 }
 
@@ -634,5 +662,22 @@ class EnumerableSorterImpl<T, K> extends EnumerableSorter<T> {
             return index1 - index2
         }
         return this.descending ? -c : c
+    }
+}
+
+class GroupedEnumerable<T, K, E, R> extends Enumerable<R> {
+    constructor(
+        private readonly source: IEnumerable<T>,
+        private readonly keySelector: Mapper<T, K>,
+        private readonly elementSelector: Mapper<T, E>,
+        // private readonly resultSelector?: SelectorMut<K, IEnumerable<E>, R>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        const lookup = Lookup.create(this.source, this.keySelector, this.elementSelector)
+        // return lookup.appalyResultSelector(this.resultSelector)
+        return lookup
     }
 }
