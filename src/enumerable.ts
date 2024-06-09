@@ -60,15 +60,22 @@ interface IEnumerable<T> {
     ): IOrderedEnumberable<T>
 
     groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
-    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): IGrouping<K, E>
-    groupBy<K, E, R>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>, resultSelector: SelectorMut<K, IEnumerable<E>, R>): IEnumerable<R>
+    groupBy<K, E>(
+        keySelector: Mapper<T, K>,
+        elementSelector: Mapper<T, E>
+    ): IGrouping<K, E>
+    groupBy<K, E, R>(
+        keySelector: Mapper<T, K>,
+        elementSelector: Mapper<T, E>,
+        resultSelector: SelectorMut<K, IEnumerable<E>, R>
+    ): IEnumerable<R>
 
     toArray(): T[]
 
     get count(): number
 }
 
-const comparerDefault = <T>(l: T, r: T): number => {
+function comparerDefault<T>(l: T, r: T): number {
     return l === r ? 0 : l < r ? -1 : 1
 }
 
@@ -153,7 +160,7 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         return new OrderedEnumerableImpl<T, K>(
             this,
             keySelector,
-            comparer ?? comparerDefault<K>,
+            comparer ?? comparerDefault,
             false
         )
     }
@@ -170,18 +177,26 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         return new OrderedEnumerableImpl<T, K>(
             this,
             keySelector,
-            comparer ?? comparerDefault<K>,
+            comparer ?? comparerDefault,
             true
         )
     }
 
     groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
-    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): IGrouping<K, E>
-    groupBy<K, E>(keySelector: Mapper<T, K>, elementSelector?: Mapper<T, E>): any {
-        return new GroupedEnumerable(keySelector, elementSelector ?? ((v: any) => v))
+    groupBy<K, E>(
+        keySelector: Mapper<T, K>,
+        elementSelector: Mapper<T, E>
+    ): IGrouping<K, E>
+    groupBy<K, E>(
+        keySelector: Mapper<T, K>,
+        elementSelector?: Mapper<T, E>
+    ): any {
+        return new GroupedEnumerable(
+            this,
+            keySelector,
+            elementSelector ?? ((v: any) => v)
+        )
     }
-
-
 
     toArray(): T[] {
         return [...this]
@@ -403,7 +418,9 @@ class Lookup<K, E>
         this.keyToGroupingsIndex.set(key, this.groupings.length - 1)
     }
 
-    *appalyResultSelector<R>(resultSelector: SelectorMut<K, IEnumerable<E>, R>) {
+    *appalyResultSelector<R>(
+        resultSelector: SelectorMut<K, IEnumerable<E>, R>
+    ) {
         for (const g of this.groupings) {
             yield resultSelector(g.key, g)
         }
@@ -428,14 +445,18 @@ class Lookup<K, E>
         return lookup
     }
 
-    static create<T, K, E>(source: IEnumerable<T>, keySelector: Mapper<T, K>, elementSelector: Mapper<T, E>): Lookup<K, E> {
-        const lookup = new Lookup<K, E>();
-        for (const v of source) { 
+    static create<T, K, E>(
+        source: IEnumerable<T>,
+        keySelector: Mapper<T, K>,
+        elementSelector: Mapper<T, E>
+    ): Lookup<K, E> {
+        const lookup = new Lookup<K, E>()
+        for (const v of source) {
             const k = keySelector(v)
             if (!lookup.has(k)) lookup.createGrouping(k)
-            lookup.getGrouping(k).add(elementSelector(v));
+            lookup.getGrouping(k).add(elementSelector(v))
         }
-        return lookup;
+        return lookup
     }
 }
 
@@ -669,14 +690,18 @@ class GroupedEnumerable<T, K, E, R> extends Enumerable<R> {
     constructor(
         private readonly source: IEnumerable<T>,
         private readonly keySelector: Mapper<T, K>,
-        private readonly elementSelector: Mapper<T, E>,
+        private readonly elementSelector: Mapper<T, E>
         // private readonly resultSelector?: SelectorMut<K, IEnumerable<E>, R>
     ) {
         super()
     }
 
     override *[Symbol.iterator](): Iterator<R, any, undefined> {
-        const lookup = Lookup.create(this.source, this.keySelector, this.elementSelector)
+        const lookup = Lookup.create(
+            this.source,
+            this.keySelector,
+            this.elementSelector
+        )
         // return lookup.appalyResultSelector(this.resultSelector)
         return lookup
     }
