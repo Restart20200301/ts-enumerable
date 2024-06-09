@@ -64,7 +64,7 @@ interface IEnumerable<T> {
     get count(): number
 }
 
-const conparerDefault = <T>(l: T, r: T) => {
+const comparerDefault = <T>(l: T, r: T): number => {
     return l === r ? 0 : l < r ? -1 : 1
 }
 
@@ -149,7 +149,7 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         return new OrderedEnumerableImpl<T, K>(
             this,
             keySelector,
-            comparer ?? conparerDefault<K>,
+            comparer ?? comparerDefault<K>,
             false
         )
     }
@@ -166,7 +166,7 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         return new OrderedEnumerableImpl<T, K>(
             this,
             keySelector,
-            comparer ?? conparerDefault<K>,
+            comparer ?? comparerDefault<K>,
             true
         )
     }
@@ -517,7 +517,7 @@ abstract class OrderedEnumerable<T>
     ): IOrderedEnumberable<T> {
         return this.createOrderedEnumerable(
             keySelector,
-            comparer ?? conparerDefault,
+            comparer ?? comparerDefault,
             false
         )
     }
@@ -533,7 +533,7 @@ abstract class OrderedEnumerable<T>
     ): IOrderedEnumberable<T> {
         return this.createOrderedEnumerable(
             keySelector,
-            comparer ?? conparerDefault,
+            comparer ?? comparerDefault,
             true
         )
     }
