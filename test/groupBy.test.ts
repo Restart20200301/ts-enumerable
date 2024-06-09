@@ -32,10 +32,13 @@ describe('group by', () => {
 
     test('with element selector', () => {
         const s = stream(students)
-            .groupBy((stu) => Math.floor(stu.age))
-            .select((v) => [...v.select((v) => v.age)])
+            .groupBy(
+                (stu) => Math.floor(stu.age),
+                (v) => Math.floor(v.age)
+            )
+            .select((v) => [...v])
             .toArray()
 
-        expect(s).toEqual([[8.3], [4.9, 4.3], [1.5]])
+        expect(s).toEqual([[8], [4, 4], [1]])
     })
 })
