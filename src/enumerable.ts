@@ -59,16 +59,11 @@ interface IEnumerable<T> {
         comparer: Comparer<K>
     ): IOrderedEnumberable<T>
 
-    groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
+    groupBy<K, E>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
     groupBy<K, E>(
         keySelector: Mapper<T, K>,
         elementSelector: Mapper<T, E>
-    ): IGrouping<K, E>
-    groupBy<K, E, R>(
-        keySelector: Mapper<T, K>,
-        elementSelector: Mapper<T, E>,
-        resultSelector: SelectorMut<K, IEnumerable<E>, R>
-    ): IEnumerable<R>
+    ): IEnumerable<IGrouping<K, E>>
 
     toArray(): T[]
 
@@ -182,20 +177,18 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         )
     }
 
-    groupBy<K, E>(keySelector: Mapper<T, K>): IGrouping<K, T>
+    groupBy<K, E>(keySelector: Mapper<T, K>): IEnumerable<IGrouping<K, T>>
     groupBy<K, E>(
         keySelector: Mapper<T, K>,
         elementSelector: Mapper<T, E>
-    ): IGrouping<K, E>
+    ): IEnumerable<IGrouping<K, E>>
     groupBy<K, E>(
         keySelector: Mapper<T, K>,
         elementSelector?: Mapper<T, E>
-    ): any {
-        return new GroupedEnumerable(
-            this,
-            keySelector,
-            elementSelector ?? ((v: any) => v)
-        )
+    ): IEnumerable<IGrouping<K, T | E>> {
+        return elementSelector
+            ? new GroupedEnumerable(this, keySelector, elementSelector)
+            : new GroupedEnumerable(this, keySelector, (v) => v)
     }
 
     toArray(): T[] {
@@ -364,6 +357,7 @@ class SkipWhileEnumerable<T> extends Enumerable<T> {
 
 interface IGrouping<K, E> extends IEnumerable<E> {
     get key(): K
+    get count(): number
 }
 
 class Grouping<K, E> extends Enumerable<E> implements IGrouping<K, E> {
@@ -379,6 +373,10 @@ class Grouping<K, E> extends Enumerable<E> implements IGrouping<K, E> {
 
     get key(): K {
         return this.k
+    }
+
+    get count(): number {
+        return this.elements.length
     }
 
     add(element: E) {
@@ -686,23 +684,21 @@ class EnumerableSorterImpl<T, K> extends EnumerableSorter<T> {
     }
 }
 
-class GroupedEnumerable<T, K, E, R> extends Enumerable<R> {
+class GroupedEnumerable<T, K, E> extends Enumerable<IGrouping<K, E>> {
     constructor(
         private readonly source: IEnumerable<T>,
         private readonly keySelector: Mapper<T, K>,
         private readonly elementSelector: Mapper<T, E>
-        // private readonly resultSelector?: SelectorMut<K, IEnumerable<E>, R>
     ) {
         super()
     }
 
-    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+    override *[Symbol.iterator](): Iterator<IGrouping<K, E>, any, undefined> {
         const lookup = Lookup.create(
             this.source,
             this.keySelector,
             this.elementSelector
         )
-        // return lookup.appalyResultSelector(this.resultSelector)
-        return lookup
+        yield* lookup
     }
 }
