@@ -79,6 +79,8 @@ interface IEnumerable<T> {
 
     intersect(other: Iterable<T>): IEnumerable<T>
 
+    except(other: Iterable<T>): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -236,6 +238,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
 
     intersect(other: Iterable<T>): IEnumerable<T> {
         return new IntersectEnumerable(this, other)
+    }
+
+    except(other: Iterable<T>): IEnumerable<T> {
+        return new ExceptEnumerable(this, other)
     }
 
     toArray(): T[] {
@@ -838,10 +844,30 @@ class IntersectEnumerable<T> extends Enumerable<T> {
     }
 
     override *[Symbol.iterator](): Iterator<T, any, undefined> {
-        for (const v of this.first) this.set.add(v)
-        for (const v of this.second) {
+        for (const v of this.second) this.set.add(v)
+        for (const v of this.first) {
             if (!this.set.has(v)) continue
             this.set.delete(v)
+            yield v
+        }
+    }
+}
+
+class ExceptEnumerable<T> extends Enumerable<T> {
+    private readonly set = new Set<T>()
+
+    constructor(
+        private readonly first: Iterable<T>,
+        private readonly second: Iterable<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.second) this.set.add(v)
+        for (const v of this.first) {
+            if (this.set.has(v)) continue
+            this.set.add(v)
             yield v
         }
     }

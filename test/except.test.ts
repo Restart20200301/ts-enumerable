@@ -1,12 +1,12 @@
 import { describe, expect, test } from '@jest/globals'
 import stream from '../src/enumerable'
 
-describe('intersect', () => {
+describe('except', () => {
     test('', () => {
         expect(
-            stream([44, 26, 92, 30, 71, 38])
-                .intersect([39, 59, 30, 83, 47, 26, 4])
+            stream([2.0, 2.0, 2.1, 2.2, 2.3, 2.3, 2.4, 2.5])
+                .except([2.2])
                 .toArray()
-        ).toEqual([26, 30])
+        ).toEqual([2, 2.1, 2.3, 2.4, 2.5])
     })
 })
