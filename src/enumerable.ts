@@ -77,6 +77,8 @@ interface IEnumerable<T> {
 
     union(other: Iterable<T>): IEnumerable<T>
 
+    intersect(other: Iterable<T>): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -230,6 +232,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
 
     union(other: Iterable<T>): IEnumerable<T> {
         return new UnionEnumerable(this, other)
+    }
+
+    intersect(other: Iterable<T>): IEnumerable<T> {
+        return new IntersectEnumerable(this, other)
     }
 
     toArray(): T[] {
@@ -816,6 +822,26 @@ class UnionEnumerable<T> extends Enumerable<T> {
         for (const v of this.second) {
             if (this.set.has(v)) continue
             this.set.add(v)
+            yield v
+        }
+    }
+}
+
+class IntersectEnumerable<T> extends Enumerable<T> {
+    private readonly set = new Set<T>()
+
+    constructor(
+        private readonly first: Iterable<T>,
+        private readonly second: Iterable<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.first) this.set.add(v)
+        for (const v of this.second) {
+            if (!this.set.has(v)) continue
+            this.set.delete(v)
             yield v
         }
     }
