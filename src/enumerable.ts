@@ -81,6 +81,8 @@ interface IEnumerable<T> {
 
     except(other: Iterable<T>): IEnumerable<T>
 
+    reverse(): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -242,6 +244,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
 
     except(other: Iterable<T>): IEnumerable<T> {
         return new ExceptEnumerable(this, other)
+    }
+
+    reverse(): IEnumerable<T> {
+        return new ReverseEnumerable(this)
     }
 
     toArray(): T[] {
@@ -870,5 +876,16 @@ class ExceptEnumerable<T> extends Enumerable<T> {
             this.set.add(v)
             yield v
         }
+    }
+}
+
+class ReverseEnumerable<T> extends Enumerable<T> {
+    constructor(private readonly source: IEnumerable<T>) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        const arr = this.source.toArray()
+        for (let i = arr.length - 1; i >= 0; i--) yield arr[i]
     }
 }
