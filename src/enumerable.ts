@@ -4,6 +4,46 @@ export default function stream<T>(iter: Iterable<T>): IEnumerable<T> {
         : new IterEnumerable(iter)
 }
 
+export const range = (start: number, count: number) =>
+    new RangeEnumerable(start, count)
+
+export const repeat = <T>(element: T, count: number) =>
+    new RepeatEnumerable(element, count)
+
+export const sum = (iter: Iterable<number>) => {
+    let result = 0
+    for (const v of iter) {
+        result += v
+    }
+    return result
+}
+
+export const min = (iter: Iterable<number>) => {
+    let result = Number.MAX_SAFE_INTEGER
+    for (const v of iter) {
+        result = Math.min(v, result)
+    }
+    return result
+}
+
+export const max = (iter: Iterable<number>) => {
+    let result = Number.MIN_SAFE_INTEGER
+    for (const v of iter) {
+        result = Math.max(v, result)
+    }
+    return result
+}
+
+export const average = (iter: Iterable<number>) => {
+    let result = 0
+    let count = 0
+    for (const v of iter) {
+        result += v
+        count += 1
+    }
+    return count == 0 ? 0 : result / count
+}
+
 // type def begin
 type Predicate<T> = (v: T, i: number) => boolean
 type Selector<T, U> = (v: T, i: number) => U
@@ -86,6 +126,21 @@ interface IEnumerable<T> {
     toArray(): T[]
 
     get count(): number
+
+    // 为与类中成员first区别，改个名字
+    firstOne(): T | undefined
+    firstOne(predicate: (v: T) => boolean): T | undefined
+
+    lastOne(): T | undefined
+    lastOne(predicate: (v: T) => boolean): T | undefined
+
+    any(predicate: (v: T) => boolean): boolean
+
+    all(predicate: (v: T) => boolean): boolean
+
+    contains(value: T): boolean
+
+    aggregate<U>(init: U, func: SelectorMut<U, T, U>): U
 }
 
 function comparerDefault<T>(l: T, r: T): number {
@@ -259,6 +314,55 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         for (const v of this) total++
         return total
     }
+
+    firstOne(): T | undefined
+    firstOne(predicate: (v: T) => boolean): T | undefined
+    firstOne(predicate?: (v: T) => boolean): T | undefined {
+        predicate = predicate ?? ((v: T) => true)
+        for (const v of this) {
+            if (predicate(v)) return v
+        }
+    }
+
+    lastOne(): T | undefined
+    lastOne(predicate: (v: T) => boolean): T | undefined
+    lastOne(predicate?: (v: T) => boolean): T | undefined {
+        predicate = predicate ?? ((v: T) => true)
+        let result: T | undefined
+        for (const v of this) {
+            if (predicate(v)) result = v
+        }
+        return result
+    }
+
+    any(predicate: (v: T) => boolean): boolean {
+        for (const v of this) {
+            if (predicate(v)) return true
+        }
+
+        return false
+    }
+
+    all(predicate: (v: T) => boolean): boolean {
+        for (const v of this) {
+            if (!predicate(v)) return false
+        }
+
+        return true
+    }
+
+    contains(value: T): boolean {
+        for (const v of this) if (v === value) return true
+        return false
+    }
+
+    aggregate<U>(init: U, func: SelectorMut<U, T, U>): U {
+        let result = init
+        for (const v of this) {
+            result = func(result, v)
+        }
+        return result
+    }
 }
 
 class ArrayEnumerable<T> extends Enumerable<T> {
@@ -276,6 +380,13 @@ class ArrayEnumerable<T> extends Enumerable<T> {
 
     override get count(): number {
         return this.source.length
+    }
+
+    override lastOne(predicate?: (v: T) => boolean): T | undefined {
+        predicate = predicate ?? ((v: T) => true)
+
+        for (let i = this.source.length - 1; i >= 0; i--)
+            if (predicate(this.source[i])) return this.source[i]
     }
 }
 
@@ -887,5 +998,31 @@ class ReverseEnumerable<T> extends Enumerable<T> {
     override *[Symbol.iterator](): Iterator<T, any, undefined> {
         const arr = this.source.toArray()
         for (let i = arr.length - 1; i >= 0; i--) yield arr[i]
+    }
+}
+
+class RangeEnumerable extends Enumerable<number> {
+    constructor(
+        private readonly start: number,
+        private readonly count_: number
+    ) {
+        super()
+    }
+
+    *[Symbol.iterator](): Iterator<number, any, undefined> {
+        for (let i = 0; i < this.count_; i++) yield this.start + i
+    }
+}
+
+class RepeatEnumerable<T> extends Enumerable<T> {
+    constructor(
+        private readonly el: T,
+        private readonly count_: number
+    ) {
+        super()
+    }
+
+    *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (let i = 0; i < this.count_; i++) yield this.el
     }
 }
