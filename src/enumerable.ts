@@ -67,6 +67,12 @@ interface IEnumerable<T> {
 
     concat(other: Iterable<T>): IEnumerable<T>
 
+    zip<U>(other: Iterable<U>): IEnumerable<[T, U]>
+    zip<U, R>(
+        other: Iterable<U>,
+        resultSelector: SelectorMut<T, U, R>
+    ): IEnumerable<R>
+
     toArray(): T[]
 
     get count(): number
@@ -195,6 +201,23 @@ abstract class Enumerable<T> implements IEnumerable<T> {
 
     concat(other: Iterable<T>): IEnumerable<T> {
         return new ConcatEnumerable(this, other)
+    }
+
+    zip<U>(other: Iterable<U>): IEnumerable<[T, U]>
+    zip<U, R>(
+        other: Iterable<U>,
+        resultSelector: SelectorMut<T, U, R>
+    ): IEnumerable<R>
+    zip<U, R>(
+        other: Iterable<U>,
+        resultSelector?: SelectorMut<T, U, R>
+    ): IEnumerable<R | [T, U]> {
+        return resultSelector
+            ? new ZipEnumerable(this, other, resultSelector)
+            : new ZipEnumerable(this, other, (first: T, second: U): [T, U] => [
+                  first,
+                  second,
+              ])
     }
 
     toArray(): T[] {
@@ -720,5 +743,27 @@ class ConcatEnumerable<T> extends Enumerable<T> {
     override *[Symbol.iterator](): Iterator<T, any, undefined> {
         for (const v of this.first) yield v
         for (const v of this.second) yield v
+    }
+}
+
+class ZipEnumerable<T, U, R> extends Enumerable<R> {
+    constructor(
+        private readonly first: Iterable<T>,
+        private readonly second: Iterable<U>,
+        private readonly resultSelector: SelectorMut<T, U, R>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<R, any, undefined> {
+        let firstIt = this.first[Symbol.iterator]()
+        let secondIt = this.second[Symbol.iterator]()
+        do {
+            const firstResult = firstIt.next()
+            if (firstResult.done) break
+            const secondResult = secondIt.next()
+            if (secondResult.done) break
+            yield this.resultSelector(firstResult.value, secondResult.value)
+        } while (true)
     }
 }
