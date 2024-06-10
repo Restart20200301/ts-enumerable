@@ -65,6 +65,8 @@ interface IEnumerable<T> {
         elementSelector: Mapper<T, E>
     ): IEnumerable<IGrouping<K, E>>
 
+    concat(other: Iterable<T>): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -189,6 +191,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
         return elementSelector
             ? new GroupedEnumerable(this, keySelector, elementSelector)
             : new GroupedEnumerable(this, keySelector, (v) => v)
+    }
+
+    concat(other: Iterable<T>): IEnumerable<T> {
+        return new ConcatEnumerable(this, other)
     }
 
     toArray(): T[] {
@@ -700,5 +706,19 @@ class GroupedEnumerable<T, K, E> extends Enumerable<IGrouping<K, E>> {
             this.elementSelector
         )
         yield* lookup
+    }
+}
+
+class ConcatEnumerable<T> extends Enumerable<T> {
+    constructor(
+        private readonly first: Iterable<T>,
+        private readonly second: Iterable<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.first) yield v
+        for (const v of this.second) yield v
     }
 }
