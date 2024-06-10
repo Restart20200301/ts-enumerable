@@ -75,6 +75,8 @@ interface IEnumerable<T> {
 
     distinct(): IEnumerable<T>
 
+    union(other: Iterable<T>): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -224,6 +226,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
 
     distinct(): IEnumerable<T> {
         return new DistinctEnumerable(this)
+    }
+
+    union(other: Iterable<T>): IEnumerable<T> {
+        return new UnionEnumerable(this, other)
     }
 
     toArray(): T[] {
@@ -783,6 +789,31 @@ class DistinctEnumerable<T> extends Enumerable<T> {
 
     override *[Symbol.iterator](): Iterator<T, any, undefined> {
         for (const v of this.source) {
+            if (this.set.has(v)) continue
+            this.set.add(v)
+            yield v
+        }
+    }
+}
+
+class UnionEnumerable<T> extends Enumerable<T> {
+    private readonly set = new Set<T>()
+
+    constructor(
+        private readonly first: Iterable<T>,
+        private readonly second: Iterable<T>
+    ) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.first) {
+            if (this.set.has(v)) continue
+            this.set.add(v)
+            yield v
+        }
+
+        for (const v of this.second) {
             if (this.set.has(v)) continue
             this.set.add(v)
             yield v
