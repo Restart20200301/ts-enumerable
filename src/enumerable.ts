@@ -73,6 +73,8 @@ interface IEnumerable<T> {
         resultSelector: SelectorMut<T, U, R>
     ): IEnumerable<R>
 
+    distinct(): IEnumerable<T>
+
     toArray(): T[]
 
     get count(): number
@@ -218,6 +220,10 @@ abstract class Enumerable<T> implements IEnumerable<T> {
                   first,
                   second,
               ])
+    }
+
+    distinct(): IEnumerable<T> {
+        return new DistinctEnumerable(this)
     }
 
     toArray(): T[] {
@@ -765,5 +771,21 @@ class ZipEnumerable<T, U, R> extends Enumerable<R> {
             if (secondResult.done) break
             yield this.resultSelector(firstResult.value, secondResult.value)
         } while (true)
+    }
+}
+
+class DistinctEnumerable<T> extends Enumerable<T> {
+    private readonly set = new Set<T>()
+
+    constructor(private readonly source: IEnumerable<T>) {
+        super()
+    }
+
+    override *[Symbol.iterator](): Iterator<T, any, undefined> {
+        for (const v of this.source) {
+            if (this.set.has(v)) continue
+            this.set.add(v)
+            yield v
+        }
     }
 }
